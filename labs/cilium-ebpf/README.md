@@ -1,13 +1,35 @@
-# Cilium eBPF networking and kube-proxy-free Kubernetes — hands-on lab
+# Cilium eBPF Networking & Kubernetes NetworkPolicy Lab
+
+**GitHub account established: July 28, 2017**
+
+**Intended repository:** [`shm2/cilium-ebpf-lab`](https://github.com/shm2/cilium-ebpf-lab)  
+**Scope:** An independent, hands-on Cilium networking portfolio project for a three-node VMware kubeadm cluster.  
+**Date verification:** `curl -fsSL https://api.github.com/users/shm2 | jq -r .created_at` returns the GitHub account creation timestamp. The date above refers to the **account**, not to the repository, the authoring of this lab, or the upstream Cilium project.
 
 **Environment:** three VMware Ubuntu 24.04 kubeadm VMs (`k8scp2`, `k8s-w1`, `k8s-w2`)  
 **Kubernetes:** v1.36.5 (recorded during later exercises)  
 **Cilium:** v1.20.2 (historical hands-on test)  
-**CNI:** Cilium; eBPF service datapath; kube-proxy replacement is a configuration to **verify** on the target cluster.  
+**CNI:** Cilium; eBPF service datapath. kube-proxy replacement must be verified on the live cluster before claiming kube-proxy-free operation.  
 **Network:** `192.168.217.128` (control plane), `.129` and `.130` (workers).  
-**Repository purpose:** reproducible operations, targeted L3/L4 policy test, evidence and safe cleanup.
+**Repository purpose:** reproducible Cilium inspection, a targeted L3/L4 policy test, evidence collection, and safe cleanup.
 
 > **Evidence boundary:** The previous Cilium connectivity run reported **82 successful / 53 skipped** tests (135 total), with Hubble Relay unavailable and flow-validation tests skipped. The run used NodePorts **32127** and **30579**. These are historical observations, **not assertions that a fresh test passed today**. Historical full logs are not bundled here. Re-run the commands below to produce current evidence. No live cluster or GitHub repository is modified merely by downloading this package.
+
+## Repository layout
+
+```text
+cilium-ebpf-lab/
+├── README.md
+├── .gitignore
+├── manifests/
+│   ├── 00-workloads.yaml
+│   └── 10-policy.yaml
+├── scripts/
+│   ├── 01-inspect.sh
+│   └── 02-policy-proof.sh
+└── evidence/
+    └── README.md
+```
 
 ## Architecture
 
@@ -49,6 +71,8 @@ kubectl get nodes -o wide
 
 ## 1 — Read-only baseline
 
+Run commands from the **repository root**. This repository does not include the live cluster credentials.
+
 ```bash
 # Inspect the agents, Helm release and current CRDs.
 bash scripts/01-inspect.sh
@@ -57,7 +81,7 @@ bash scripts/01-inspect.sh
 cilium status
 ```
 
-Expected: three nodes Ready, healthy Cilium agent pods and Cilium CRDs. The script reports real live settings; **the presence of eBPF does not by itself prove kube-proxy replacement is enabled**.
+Expected: three nodes Ready, healthy Cilium agent pods and Cilium CRDs. If any diagnostic reports an error, record it rather than assuming the environment is healthy. The script reports real live settings; **the presence of eBPF does not by itself prove kube-proxy replacement is enabled**.
 
 To verify kube-proxy-free operation, check BOTH the Cilium agent's `KubeProxyReplacement` status and whether a `kube-proxy` DaemonSet exists. A kube-proxy DaemonSet being absent alone does not prove that replacement is functioning.
 
@@ -84,7 +108,7 @@ for NODE_IP in 192.168.217.128 192.168.217.129 192.168.217.130; do
 done
 ```
 
-Successful NodePort traffic depends on Service configuration, Cilium mode, policy, firewall rules and the availability of healthy endpoints.
+Successful NodePort traffic depends on Service configuration, Cilium mode, policy, firewall rules and the availability of healthy endpoints. The example assumes the selected Service speaks HTTP.
 
 ## 3 — Isolated CiliumNetworkPolicy exercise
 
@@ -120,7 +144,7 @@ kubectl -n cilium-ebpf-lab exec allowed-client -- curl -fsS --max-time 5 http://
 bash scripts/02-policy-proof.sh
 ```
 
-If the blocked request succeeds unexpectedly, check Cilium policy realization and effective identity labels; do not claim success. Note that this example restricts **ingress to the `web` Pods**, not all traffic in the namespace.
+Allow a short period for Cilium policy realization after applying the rule. If the blocked request succeeds unexpectedly, check effective policy and endpoint identities and rerun the proof script; do not claim success. Note that this example restricts **ingress to the `web` Pods**, not all traffic in the namespace.
 
 ## 4 — Run official Cilium connectivity suite (optional, heavier)
 
@@ -162,6 +186,17 @@ This cleanup **does not uninstall Cilium, delete its CRDs, change kube-proxy, or
 | Live kube-proxy replacement state | **Must inspect** before claiming enabled in current cluster |
 | Isolated policy allow/deny example | Runnable lab; **not claimed as executed** |
 | New screenshots/logs | Add only after running verification |
+
+## Git workflow
+
+This is a **standalone** repository under `shm2`, not a folder in the Argo CD conglomerate repository.
+
+```bash
+# Commit future documentation or verified test evidence.
+git add README.md manifests/ scripts/ evidence/
+git commit -m "docs: update Cilium lab evidence"
+git push origin main
+```
 
 ## GitOps and security notes
 
