@@ -1,0 +1,9 @@
+# Keep local authentication and runtime data out of the portfolio.
+*.kubeconfig
+kubeconfig*
+*.key
+*.pem
+*.token
+.env
+*.log
+!.gitkeep

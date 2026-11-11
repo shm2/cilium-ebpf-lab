@@ -1,0 +1,86 @@
+# Dedicated namespace for disposable Cilium policy testing.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cilium-ebpf-lab
+---
+# HTTP server receiving traffic from test clients.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: cilium-ebpf-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+---
+# Stable DNS name for the web server.
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: cilium-ebpf-lab
+spec:
+  selector:
+    app: web
+  ports:
+    - port: 80
+      targetPort: 80
+---
+# This source identity will be permitted by policy.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: allowed-client
+  namespace: cilium-ebpf-lab
+  labels:
+    role: allowed
+spec:
+  containers:
+    - name: curl
+      image: curlimages/curl:8.11.1
+      command: ["sleep", "36000"]
+      resources:
+        requests:
+          cpu: 5m
+          memory: 16Mi
+        limits:
+          memory: 64Mi
+---
+# This source identity will be denied by policy.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: blocked-client
+  namespace: cilium-ebpf-lab
+  labels:
+    role: blocked
+spec:
+  containers:
+    - name: curl
+      image: curlimages/curl:8.11.1
+      command: ["sleep", "36000"]
+      resources:
+        requests:
+          cpu: 5m
+          memory: 16Mi
+        limits:
+          memory: 64Mi

@@ -1,0 +1,18 @@
+# Allow only role=allowed Pods to connect to app=web on TCP/80.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-selected-web-clients
+  namespace: cilium-ebpf-lab
+spec:
+  endpointSelector:
+    matchLabels:
+      app: web
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            role: allowed
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
